@@ -23,4 +23,103 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  outline: 5px solid red;
+}
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.splash-exit {
+  animation: fadeOut 0.3s ease forwards;
+}
+/* ===============================
+   FocusTube Hero Gradient
+   =============================== */
+
+.hero-gradient {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+
+  background:
+    radial-gradient(
+      600px 400px at 50% 30%,
+      rgba(37, 99, 235, 0.25),
+      transparent 70%
+    ),
+    radial-gradient(
+      500px 300px at 70% 20%,
+      rgba(59, 130, 246, 0.15),
+      transparent 75%
+    );
+
+  filter: blur(40px);
+  opacity: 0.6;
+  animation: heroGlow 12s ease-in-out infinite;
+}
+
+/* Very slow, barely noticeable */
+@keyframes heroGlow {
+  0% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.75;
+  }
+  100% {
+    opacity: 0.55;
+  }
+}
+/* =========================
+   HERO ENTRANCE ANIMATION
+   ========================= */
+
+.hero-entrance {
+  animation: heroFadeUp 900ms ease-out forwards;
+}
+
+@keyframes heroFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Glow reveal (one-time) */
+.hero-gradient {
+  position: absolute;
+  inset: -20%;
+  z-index: 0;
+  pointer-events: none;
+
+  background:
+    radial-gradient(
+      800px 500px at 50% 35%,
+      rgba(37, 99, 235, 0.35),
+      transparent 70%
+    );
+
+  filter: blur(60px);
+  opacity: 0;
+
+  animation: heroGlowReveal 1200ms ease-out forwards;
+}
+
+@keyframes heroGlowReveal {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 0.75;
+    transform: scale(1);
+  }
 }

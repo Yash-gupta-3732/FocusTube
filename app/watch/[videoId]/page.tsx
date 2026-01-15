@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import FocusOverlay from "@/component/focus/FocusOverlay";
@@ -8,29 +8,52 @@ import FocusControls from "@/component/focus/FocusControls";
 import ReflectionModal from "@/component/focus/ReflectionModal";
 import FocusTimer from "@/component/focus/FocusTimer";
 import { useTimer } from "@/hooks/useTimer";
+import { addWatchTime } from "@/lib/progress";
+import type { YouTubePlayer } from "@/types/youtube-player";
 
-// Extend window for YouTube API
+/* =========================
+   YouTube API types
+   ========================= */
 declare global {
   interface Window {
-    YT: any;
+    YT: {
+      Player: new (
+        element: HTMLElement,
+        options: {
+          videoId: string;
+          playerVars?: Record<string, number>;
+          events?: {
+            onReady?: () => void;
+            onStateChange?: (event: { data: number }) => void;
+          };
+        }
+      ) => YouTubePlayer;
+
+      PlayerState: {
+        PLAYING: number;
+        ENDED: number;
+      };
+    };
     onYouTubeIframeAPIReady: () => void;
   }
 }
 
+
 export default function WatchPage() {
   const { videoId } = useParams<{ videoId: string }>();
+  const searchParams = useSearchParams();
+  const goalId = searchParams.get("goalId");
 
   const containerRef = useRef<HTMLDivElement>(null);
   const playerHostRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<any>(null);
+  const playerRef = useRef<YouTubePlayer | null>(null);
 
   const [playerReady, setPlayerReady] = useState(false);
   const [showReflection, setShowReflection] = useState(false);
 
-  /* ============================
-     FOCUS DURATION
-     ============================ */
-
+  /* =========================
+     Focus duration
+     ========================= */
   const [focusMinutes, setFocusMinutes] = useState(30);
 
   useEffect(() => {
@@ -42,46 +65,44 @@ export default function WatchPage() {
     localStorage.setItem("focus-duration", String(focusMinutes));
   }, [focusMinutes]);
 
-  /* ============================
-     VIDEO META
-     ============================ */
-
+  /* =========================
+     Video meta
+     ========================= */
   const [videoMeta, setVideoMeta] = useState({
     title: "Loading video…",
     channel: "",
     duration: "–",
   });
 
-  /* ============================
-     FOCUS TIMER
-     ============================ */
-
+  /* =========================
+     Focus timer
+     ========================= */
   const focusTimer = useTimer({
     durationMinutes: focusMinutes,
     onComplete: () => {
       playerRef.current?.pauseVideo();
+
+      // ✅ ADD GOAL PROGRESS HERE
+      if (goalId) {
+        addWatchTime(goalId, focusMinutes * 60);
+      }
+
       setShowReflection(true);
     },
   });
 
   useEffect(() => {
     focusTimer.reset();
+     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusMinutes]);
 
-  /* ============================
-     LOAD YOUTUBE PLAYER
-     ============================ */
-
+  /* =========================
+     Load YouTube Player (once)
+     ========================= */
   useEffect(() => {
     if (!videoId || playerRef.current) return;
 
-    if (!window.YT) {
-      const tag = document.createElement("script");
-      tag.src = "https://www.youtube.com/iframe_api";
-      document.body.appendChild(tag);
-    }
-
-    window.onYouTubeIframeAPIReady = () => {
+    const loadPlayer = () => {
       playerRef.current = new window.YT.Player(playerHostRef.current!, {
         videoId,
         playerVars: {
@@ -94,7 +115,7 @@ export default function WatchPage() {
         },
         events: {
           onReady: () => setPlayerReady(true),
-          onStateChange: (event: any) => {
+          onStateChange: (event: { data: number }) => {
             if (event.data === window.YT.PlayerState.PLAYING) {
               focusTimer.start();
             }
@@ -107,12 +128,28 @@ export default function WatchPage() {
         },
       });
     };
-  }, [videoId]);
 
-  /* ============================
-     FETCH VIDEO META
-     ============================ */
+    if (!window.YT) {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      document.body.appendChild(tag);
+      window.onYouTubeIframeAPIReady = loadPlayer;
+    } else {
+      loadPlayer();
+    }
 
+   return () => {
+  if (playerRef.current) {
+    playerRef.current.destroy();
+    playerRef.current = null;
+  }
+};
+
+  }, [videoId]); // intentionally only videoId
+
+  /* =========================
+     Fetch video metadata
+     ========================= */
   useEffect(() => {
     if (!videoId) return;
 
@@ -123,7 +160,6 @@ export default function WatchPage() {
       const res = await fetch(
         `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${videoId}&key=${apiKey}`
       );
-
       if (!res.ok) return;
 
       const data = await res.json();
@@ -154,12 +190,13 @@ export default function WatchPage() {
 
   if (!videoId) return <p>Invalid video</p>;
 
+  /* =========================
+     UI
+     ========================= */
   return (
-    <div className="mx-auto max-w-[900px] p-5">
-      {/* Focus overlay */}
+    <div className="mx-auto max-w-225 p-5">
       <FocusOverlay />
 
-      {/* Timer */}
       <div className="mb-4 flex justify-end">
         <FocusTimer
           minutes={focusTimer.minutes}
@@ -171,46 +208,32 @@ export default function WatchPage() {
         />
       </div>
 
-      {/* VIDEO */}
       <div
         ref={containerRef}
         className="relative bg-black"
         style={{ paddingBottom: "56.25%", height: 0 }}
       >
         <div ref={playerHostRef} className="absolute inset-0 h-full w-full" />
-
         {playerReady && (
-          <FocusControls playerRef={playerRef} containerRef={containerRef} />
+          <FocusControls
+            playerRef={playerRef}
+            containerRef={containerRef}
+          />
         )}
       </div>
 
-      {/* 🧠 CONTEXT PANEL (NEW) */}
       <div className="mt-6 rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 text-neutral-300">
         <h2 className="text-lg font-semibold text-white">
           {videoMeta.title}
         </h2>
-
         <p className="mt-1 text-sm text-neutral-400">
           {videoMeta.channel} · {videoMeta.duration}
         </p>
-
-        <div className="mt-4 space-y-2 text-sm">
-          <p>
-            🎯 <span className="text-white">Focus session:</span>{" "}
-            {focusMinutes} minutes
-          </p>
-
-          <p>
-            🧠 Reflection will appear when the session ends.
-          </p>
-
-          <p className="text-neutral-500">
-            Stay with the video. One insight is enough.
-          </p>
-        </div>
+        <p className="mt-3 text-sm">
+          🎯 Focus session: <span className="text-white">{focusMinutes} min</span>
+        </p>
       </div>
 
-      {/* REFLECTION */}
       <ReflectionModal
         open={showReflection}
         videoMeta={{

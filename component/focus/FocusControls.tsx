@@ -4,16 +4,12 @@ import { useEffect, useState } from "react";
 import type { YouTubePlayer } from "@/types/youtube-player";
 
 interface FocusControlsProps {
-  playerRef: React.RefObject<YouTubePlayer>;
-  containerRef: React.RefObject<HTMLDivElement>;
+  playerRef: React.RefObject<YouTubePlayer | null>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
 }
 
-/**
- * Helper: ignore shortcuts while typing in inputs/textareas
- */
 const isTyping = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) return false;
-
   return (
     target.tagName === "INPUT" ||
     target.tagName === "TEXTAREA" ||
@@ -29,161 +25,144 @@ export default function FocusControls({
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
 
-  /**
-   * Auto-hide controls after mouse / touch inactivity
-   */
+  const [speed, setSpeed] = useState(1);
+
+  /* =========================
+     Auto-hide controls
+     ========================= */
   useEffect(() => {
     let timeout: NodeJS.Timeout;
 
-    const showControls = () => {
+    const show = () => {
       setVisible(true);
       clearTimeout(timeout);
       timeout = setTimeout(() => setVisible(false), 2500);
     };
 
-    window.addEventListener("mousemove", showControls);
-    window.addEventListener("touchstart", showControls);
+    window.addEventListener("mousemove", show);
+    window.addEventListener("touchstart", show);
 
     return () => {
-      window.removeEventListener("mousemove", showControls);
-      window.removeEventListener("touchstart", showControls);
+      window.removeEventListener("mousemove", show);
+      window.removeEventListener("touchstart", show);
       clearTimeout(timeout);
     };
   }, []);
 
-  /**
-   * Mouse / button handlers
-   */
+  /* =========================
+     Speed control
+     ========================= */
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player) return;
+    player.setPlaybackRate(speed);
+  }, [speed, playerRef]);
+
+  /* =========================
+     Actions
+     ========================= */
   const togglePlay = () => {
     const player = playerRef.current;
     if (!player) return;
 
-    if (isPlaying) {
-      player.pauseVideo();
-    } else {
-      player.playVideo();
-    }
+    if (isPlaying) player.pauseVideo();
+    else player.playVideo();
 
-    setIsPlaying((prev) => !prev);
+    setIsPlaying((p) => !p);
   };
 
   const seek = (seconds: number) => {
     const player = playerRef.current;
     if (!player) return;
 
-    const current = player.getCurrentTime();
-    player.seekTo(Math.max(current + seconds, 0), true);
+    const t = player.getCurrentTime();
+    player.seekTo(Math.max(t + seconds, 0), true);
   };
 
   const toggleMute = () => {
     const player = playerRef.current;
     if (!player) return;
 
-    if (isMuted) {
-      player.unMute();
-    } else {
-      player.mute();
-    }
+    if (isMuted) player.unMute();
+    else player.mute();
 
-    setIsMuted((prev) => !prev);
+    setIsMuted((p) => !p);
   };
 
   const toggleFullscreen = () => {
     const el = containerRef.current;
     if (!el) return;
 
-    if (!document.fullscreenElement) {
-      el.requestFullscreen();
-    } else {
-      document.exitFullscreen();
-    }
+    if (!document.fullscreenElement) el.requestFullscreen();
+    else document.exitFullscreen();
   };
 
-  /**
-   * Keyboard shortcuts
-   * Space → play/pause
-   * M     → mute/unmute
-   * ←/→   → seek ±10s
-   * F     → fullscreen toggle
-   */
+  /* =========================
+     Keyboard shortcuts
+     ========================= */
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const player = playerRef.current;
-      if (!player) return;
+    const onKey = (e: KeyboardEvent) => {
       if (isTyping(e.target)) return;
 
       switch (e.key) {
         case " ":
-          e.preventDefault(); // prevent page scroll
-          if (isPlaying) {
-            player.pauseVideo();
-          } else {
-            player.playVideo();
-          }
-          setIsPlaying((prev) => !prev);
+          e.preventDefault();
+          togglePlay();
           break;
-
         case "m":
         case "M":
-          if (isMuted) {
-            player.unMute();
-          } else {
-            player.mute();
-          }
-          setIsMuted((prev) => !prev);
+          toggleMute();
           break;
-
-        case "ArrowLeft": {
-          const t = player.getCurrentTime();
-          player.seekTo(Math.max(t - 10, 0), true);
+        case "ArrowLeft":
+          seek(-10);
           break;
-        }
-
-        case "ArrowRight": {
-          const t = player.getCurrentTime();
-          player.seekTo(t + 10, true);
+        case "ArrowRight":
+          seek(10);
           break;
-        }
-
         case "f":
         case "F":
-          if (!document.fullscreenElement) {
-            containerRef.current?.requestFullscreen();
-          } else {
-            document.exitFullscreen();
-          }
+          toggleFullscreen();
           break;
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isPlaying, isMuted, playerRef, containerRef]);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+ 
 
   return (
     <div
-      className={`absolute bottom-0 left-0 right-0 z-45 transition-opacity duration-300 ${
+      className={`absolute bottom-0 left-0 right-0 z-50 transition-opacity ${
         visible ? "opacity-100" : "opacity-0"
       }`}
     >
-      <div className="flex items-center justify-between bg-black/70 px-4 py-3 text-white">
-        {/* Left: playback */}
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between bg-black/70 px-4 py-3 text-white text-sm">
+        {/* Left */}
+        <div className="flex items-center gap-3">
           <button onClick={() => seek(-10)}>⏪</button>
-          <button onClick={togglePlay}>
-            {isPlaying ? "⏸" : "▶"}
-          </button>
+          <button onClick={togglePlay}>{isPlaying ? "⏸" : "▶"}</button>
           <button onClick={() => seek(10)}>⏩</button>
         </div>
 
-        {/* Center: reserved for future timer / status */}
-        <div />
+        {/* Center */}
+        <div className="flex items-center gap-3">
+          <select
+            value={speed}
+            onChange={(e) => setSpeed(Number(e.target.value))}
+            className="bg-black text-white border border-neutral-700 rounded px-2 py-1"
+          >
+            {[0.5, 1, 1.25, 1.5, 1.75, 2].map((s) => (
+              <option key={s} value={s}>
+                {s}x
+              </option>
+            ))}
+          </select>
+        </div>
 
-        {/* Right: audio + fullscreen */}
-        <div className="flex items-center gap-4">
-          <button onClick={toggleMute}>
-            {isMuted ? "🔇" : "🔊"}
-          </button>
+        {/* Right */}
+        <div className="flex items-center gap-3">
+          <button onClick={toggleMute}>{isMuted ? "🔇" : "🔊"}</button>
           <button onClick={toggleFullscreen}>⛶</button>
         </div>
       </div>
