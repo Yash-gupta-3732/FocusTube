@@ -46,10 +46,19 @@ export default function DashboardPage() {
      FETCH VIDEOS (SERVER API)
      ========================= */
  const fetchVideos = async (searchQuery: string) => {
+  // 🔐 1️⃣ Read API key
   const apiKey = localStorage.getItem("YOUTUBE_API_KEY");
 
-  if (!apiKey || !apiKey.trim()) {
+  // 🚨 2️⃣ HARD GUARD (MOBILE SAFE)
+  if (!apiKey || apiKey.length < 30) {
+    setError("YouTube API key missing. Please re-enter your key.");
     router.push("/dev");
+    return;
+  }
+
+  // 🚨 3️⃣ Guard empty query (important)
+  if (!searchQuery || !searchQuery.trim()) {
+    setError("Please enter a search query.");
     return;
   }
 
@@ -57,14 +66,15 @@ export default function DashboardPage() {
     setLoading(true);
     setError("");
 
+    // 🌐 4️⃣ Call server API (NOT YouTube directly)
     const res = await fetch("/api/youtube/search", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-youtube-key": apiKey, // ✅ REQUIRED
+        "x-youtube-key": apiKey, // ✅ required
       },
       body: JSON.stringify({
-        query: searchQuery,      // ✅ REQUIRED
+        query: searchQuery,
         maxResults: 12,
       }),
     });
@@ -75,6 +85,7 @@ export default function DashboardPage() {
       throw new Error(data.error || "YouTube search failed");
     }
 
+    // 🎬 5️⃣ Success
     setVideos(data.items);
     setQuery(searchQuery);
   } catch (err) {
@@ -83,7 +94,6 @@ export default function DashboardPage() {
     setLoading(false);
   }
 };
-
 
   /* =========================
      AUTO FETCH ON GOAL CHANGE

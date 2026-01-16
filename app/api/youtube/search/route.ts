@@ -44,6 +44,9 @@ function formatDuration(iso?: string): string {
 
 export async function POST(req: Request) {
   try {
+    console.log("YT KEY PRESENT:", !!req.headers.get("x-youtube-key"));
+console.log("UA:", req.headers.get("user-agent"));
+
     const body = await req.json();
     const { query, maxResults = 12 } = body;
 
