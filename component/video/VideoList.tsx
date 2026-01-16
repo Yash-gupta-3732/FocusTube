@@ -15,8 +15,18 @@ export default function VideoList({
   goalId,
   progress,
 }: VideoListProps) {
+  if (videos.length === 0) return null;
+
   return (
-    <ul className="space-y-2 mt-4">
+    <ul
+      className="
+        mt-4
+        flex flex-col gap-3
+        sm:gap-4
+        touch-pan-y
+        overscroll-contain
+      "
+    >
       {videos.map((video) => (
         <VideoCard
           key={video.id.videoId}
