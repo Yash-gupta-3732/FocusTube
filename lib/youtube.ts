@@ -1,12 +1,12 @@
-import {
-  YouTubeSearchItem,
-  YouTubeVideoDetailsItem,
-} from "@/types/youtube";
-
-const YOUTUBE_BASE_URL = "https://www.googleapis.com/youtube/v3";
+import { YouTubeSearchItem, YouTubeVideoDetailsItem } from "@/types/youtube";
+type YouTubeApiErrorResponse = {
+  error?: {
+    message?: string;
+  };
+};
 
 /* =========================
-   HELPERS
+   HELPERS (UNCHANGED)
    ========================= */
 
 function isoToSeconds(iso?: string): number {
@@ -38,7 +38,7 @@ function formatDuration(iso?: string): string {
 }
 
 /* =========================
-   SEARCH YOUTUBE
+   SEARCH YOUTUBE (SERVER-SAFE)
    ========================= */
 
 export async function searchYouTubeVideos(
@@ -50,62 +50,56 @@ export async function searchYouTubeVideos(
     throw new Error("YouTube API key not provided");
   }
 
-  /* ---------- 1️⃣ SEARCH ---------- */
-  const searchParams = new URLSearchParams({
-    part: "snippet",
-    q: query,
-    type: "video",
-    maxResults: maxResults.toString(),
-    key: apiKey,
+  /* 🔐 CALL YOUR SERVER ROUTE */
+  const res = await fetch("/api/youtube/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      apiKey,
+      query,
+      maxResults,
+    }),
   });
 
-  const searchRes = await fetch(
-    `${YOUTUBE_BASE_URL}/search?${searchParams}`
-  );
+  const data: { items: YouTubeSearchItem[] } = await res.json();
 
-  if (!searchRes.ok) {
-    const error = await searchRes.json();
-    throw new Error(error.error?.message || "Search failed");
+  if (!res.ok) {
+    const errorData = data as YouTubeApiErrorResponse;
+    throw new Error(errorData.error?.message ?? "YouTube search failed");
   }
 
-  const searchData: { items: YouTubeSearchItem[] } =
-    await searchRes.json();
-
-  const videoIds = searchData.items
-    .map((item) => item.id.videoId)
-    .filter(Boolean);
+  /* ---------- IDs ---------- */
+  const videoIds = data.items.map((item) => item.id.videoId).filter(Boolean);
 
   if (videoIds.length === 0) {
-    return { ...searchData, items: [] };
+    return { items: [] };
   }
 
-  /* ---------- 2️⃣ DETAILS ---------- */
-  const detailsParams = new URLSearchParams({
-    part: "contentDetails",
-    id: videoIds.join(","),
-    key: apiKey,
+  /* ---------- DETAILS (SECOND SERVER CALL) ---------- */
+  const detailsRes = await fetch("/api/youtube/details", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      apiKey,
+      videoIds,
+    }),
   });
-
-  const detailsRes = await fetch(
-    `${YOUTUBE_BASE_URL}/videos?${detailsParams}`
-  );
-
-  if (!detailsRes.ok) {
-    const error = await detailsRes.json();
-    throw new Error(error.error?.message || "Details failed");
-  }
 
   const detailsData: { items: YouTubeVideoDetailsItem[] } =
     await detailsRes.json();
+  if (!detailsRes.ok) {
+    const errorData = detailsData as YouTubeApiErrorResponse;
+    throw new Error(errorData.error?.message ?? "Details fetch failed");
+  }
 
-  /* ---------- 3️⃣ MAP DURATIONS ---------- */
+  /* ---------- MAP DURATIONS ---------- */
   const durationMap = new Map<string, string>();
   detailsData.items.forEach((item) => {
     durationMap.set(item.id, item.contentDetails.duration);
   });
 
-  /* ---------- 4️⃣ MERGE + FILTER ---------- */
-  const itemsWithDuration = searchData.items
+  /* ---------- MERGE + FILTER ---------- */
+  const itemsWithDuration = data.items
     .map((video) => {
       const iso = durationMap.get(video.id.videoId);
       const seconds = isoToSeconds(iso);
@@ -116,12 +110,11 @@ export async function searchYouTubeVideos(
         durationSeconds: seconds,
       };
     })
-    // ❌ Block Shorts / very short videos
-    // ✅ Allow ≥ 1 minute
+    // ❌ Shorts
+    // ✅ ≥ 1 minute
     .filter((video) => video.durationSeconds >= 60);
 
   return {
-    ...searchData,
     items: itemsWithDuration,
   };
 }

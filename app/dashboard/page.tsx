@@ -8,14 +8,12 @@ import GoalFilter from "../../component/filters/GoalFilter";
 import GoalManager from "@/component/filters/GoalManager";
 import VideoSkeletonList from "@/component/video/VideoSkeletonList";
 import GoalProgressCard from "@/component/progress/GoalProgressCard";
+import VideoList from "@/component/video/VideoList";
 
-import { searchYouTubeVideos } from "@/lib/youtube";
 import { loadProgress } from "@/lib/progress";
 
 import type { YouTubeVideo } from "@/types/youtube";
 import type { LearningGoal } from "@/types/goal";
-
-import VideoList from "@/component/video/VideoList";
 
 const GOALS_STORAGE_KEY = "FOCUSTUBE_CUSTOM_GOALS";
 const MAX_GOALS = 5;
@@ -45,29 +43,47 @@ export default function DashboardPage() {
   }, []);
 
   /* =========================
-     FETCH VIDEOS
+     FETCH VIDEOS (SERVER API)
      ========================= */
-  const fetchVideos = async (searchQuery: string) => {
-    const apiKey = localStorage.getItem("YOUTUBE_API_KEY");
+ const fetchVideos = async (searchQuery: string) => {
+  const apiKey = localStorage.getItem("YOUTUBE_API_KEY");
 
-    if (!apiKey || !apiKey.trim()) {
-      router.push("/dev");
-      return;
+  if (!apiKey || !apiKey.trim()) {
+    router.push("/dev");
+    return;
+  }
+
+  try {
+    setLoading(true);
+    setError("");
+
+    const res = await fetch("/api/youtube/search", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-youtube-key": apiKey, // ✅ REQUIRED
+      },
+      body: JSON.stringify({
+        query: searchQuery,      // ✅ REQUIRED
+        maxResults: 12,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || "YouTube search failed");
     }
 
-    try {
-      setLoading(true);
-      setError("");
+    setVideos(data.items);
+    setQuery(searchQuery);
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "Failed to fetch videos");
+  } finally {
+    setLoading(false);
+  }
+};
 
-      const data = await searchYouTubeVideos(apiKey, searchQuery, 12);
-      setVideos(data.items);
-      setQuery(searchQuery);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch videos");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   /* =========================
      AUTO FETCH ON GOAL CHANGE
@@ -158,7 +174,9 @@ export default function DashboardPage() {
           <VideoList
             videos={videos}
             goalId={selectedGoal?.id}
-            progress={selectedGoal ? progress[selectedGoal.id] : undefined}
+            progress={
+              selectedGoal ? progress[selectedGoal.id] : undefined
+            }
           />
         )}
 
