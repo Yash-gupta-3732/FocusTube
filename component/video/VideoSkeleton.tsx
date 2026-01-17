@@ -13,9 +13,6 @@ export default function VideoSkeletonCard() {
         {/* Thumbnail skeleton */}
         <div className="relative w-28 sm:w-40 shrink-0">
           <div className="h-18 sm:h-22.5 w-full rounded-lg bg-neutral-800" />
-
-          {/* Duration placeholder */}
-          <div className="absolute bottom-1 right-1 h-3 w-8 rounded bg-neutral-700" />
         </div>
 
         {/* Text skeleton */}
