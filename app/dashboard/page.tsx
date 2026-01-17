@@ -17,7 +17,6 @@ import type { YouTubeVideo } from "@/types/youtube";
 import type { LearningGoal } from "@/types/goal";
 
 const GOALS_STORAGE_KEY = "FOCUSTUBE_CUSTOM_GOALS";
-const MAX_GOALS = 5;
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -176,7 +175,7 @@ export default function DashboardPage() {
         )}
 
         {/* ⏳ LOADING */}
-        {loading && <VideoSkeletonList count={8} />}
+        {loading && <VideoSkeletonList count={6} />}
 
         {/* ❌ ERROR */}
         {error && <p className="text-red-500">{error}</p>}

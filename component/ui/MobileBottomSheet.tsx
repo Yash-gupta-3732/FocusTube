@@ -40,7 +40,7 @@ export default function MobileBottomSheet({
         <div
           className="
             w-full
-            md:w-[520px]
+            md:w-130
             max-h-[85vh]
             overflow-y-auto
             bg-neutral-900
