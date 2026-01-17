@@ -10,7 +10,7 @@ interface GoalFilterProps {
   goals: Goal[];
   value: Goal | null;
   onChange: (goal: Goal) => void;
-  onAddClick: () => void;
+  onManageClick: () => void;
   canAddMore: boolean;
 }
 
@@ -18,44 +18,48 @@ export default function GoalFilter({
   goals,
   value,
   onChange,
-  onAddClick,
+  onManageClick,
   canAddMore,
 }: GoalFilterProps) {
   return (
-    <div className="mb-4 flex items-center gap-3">
-      <label className="text-sm text-neutral-400">
-        Learning Goal:
-      </label>
+    <div className="mb-5">
+      <p className="mb-2 text-sm text-neutral-400">Learning Goals</p>
 
-      <select
-        value={value?.id ?? ""}
-        onChange={(e) => {
-          const selected = goals.find((g) => g.id === e.target.value);
-          if (selected) onChange(selected);
-        }}
-        className="bg-neutral-900 border border-neutral-700 rounded-md px-3 py-2 text-sm"
-      >
-        {goals.map((goal) => (
-          <option key={goal.id} value={goal.id}>
-            {goal.label}
-          </option>
-        ))}
-      </select>
+      <div className="flex flex-wrap gap-2">
+        {goals.map((goal) => {
+          const active = value?.id === goal.id;
 
-      <button
-        onClick={onAddClick}
-        disabled={!canAddMore}
-        className={`
-          ml-2 rounded-md px-3 py-2 text-sm transition
-          ${
-            canAddMore
-              ? "bg-blue-600 hover:bg-blue-500 text-white"
-              : "bg-neutral-700 text-neutral-400 cursor-not-allowed"
-          }
-        `}
-      >
-        + Add
-      </button>
+          return (
+            <button
+              key={goal.id}
+              onClick={() => onChange(goal)}
+              className={`rounded-full px-4 py-1.5 text-sm transition
+                ${
+                  active
+                    ? "bg-blue-600 text-white"
+                    : "bg-neutral-800 text-neutral-300 hover:bg-neutral-700"
+                }
+              `}
+            >
+              {goal.label}
+            </button>
+          );
+        })}
+
+        {/* MANAGE / ADD */}
+        <button
+          onClick={onManageClick}
+          className={`rounded-full px-4 py-1.5 text-sm transition
+            ${
+              canAddMore
+                ? "bg-blue-600 text-white hover:bg-blue-500"
+                : "bg-neutral-700 text-neutral-300 hover:bg-neutral-600"
+            }
+          `}
+        >
+          {canAddMore ? "+ Add Goal" : "Manage Goals"}
+        </button>
+      </div>
     </div>
   );
 }

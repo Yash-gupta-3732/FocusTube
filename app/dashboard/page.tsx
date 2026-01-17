@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Navbar from "../../layout/NavBar";
 import GoalFilter from "../../component/filters/GoalFilter";
 import GoalManager from "@/component/filters/GoalManager";
+import MobileBottomSheet from "@/component/ui/MobileBottomSheet";
 import VideoSkeletonList from "@/component/video/VideoSkeletonList";
 import GoalProgressCard from "@/component/progress/GoalProgressCard";
 import VideoList from "@/component/video/VideoList";
@@ -45,55 +46,55 @@ export default function DashboardPage() {
   /* =========================
      FETCH VIDEOS (SERVER API)
      ========================= */
- const fetchVideos = async (searchQuery: string) => {
-  // 🔐 1️⃣ Read API key
-  const apiKey = localStorage.getItem("YOUTUBE_API_KEY");
+  const fetchVideos = async (searchQuery: string) => {
+    // 🔐 1️⃣ Read API key
+    const apiKey = localStorage.getItem("YOUTUBE_API_KEY");
 
-  // 🚨 2️⃣ HARD GUARD (MOBILE SAFE)
-  if (!apiKey || apiKey.length < 30) {
-    setError("YouTube API key missing. Please re-enter your key.");
-    router.push("/dev");
-    return;
-  }
-
-  // 🚨 3️⃣ Guard empty query (important)
-  if (!searchQuery || !searchQuery.trim()) {
-    setError("Please enter a search query.");
-    return;
-  }
-
-  try {
-    setLoading(true);
-    setError("");
-
-    // 🌐 4️⃣ Call server API (NOT YouTube directly)
-    const res = await fetch("/api/youtube/search", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-youtube-key": apiKey, // ✅ required
-      },
-      body: JSON.stringify({
-        query: searchQuery,
-        maxResults: 12,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.error || "YouTube search failed");
+    // 🚨 2️⃣ HARD GUARD (MOBILE SAFE)
+    if (!apiKey || apiKey.length < 30) {
+      setError("YouTube API key missing. Please re-enter your key.");
+      router.push("/dev");
+      return;
     }
 
-    // 🎬 5️⃣ Success
-    setVideos(data.items);
-    setQuery(searchQuery);
-  } catch (err) {
-    setError(err instanceof Error ? err.message : "Failed to fetch videos");
-  } finally {
-    setLoading(false);
-  }
-};
+    // 🚨 3️⃣ Guard empty query (important)
+    if (!searchQuery || !searchQuery.trim()) {
+      setError("Please enter a search query.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+
+      // 🌐 4️⃣ Call server API (NOT YouTube directly)
+      const res = await fetch("/api/youtube/search", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-youtube-key": apiKey, // ✅ required
+        },
+        body: JSON.stringify({
+          query: searchQuery,
+          maxResults: 12,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "YouTube search failed");
+      }
+
+      // 🎬 5️⃣ Success
+      setVideos(data.items);
+      setQuery(searchQuery);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch videos");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /* =========================
      AUTO FETCH ON GOAL CHANGE
@@ -111,7 +112,7 @@ export default function DashboardPage() {
   const progress = loadProgress();
 
   const goalsWithProgress = goals.filter(
-    (g) => progress[g.id]?.totalSeconds > 0
+    (g) => progress[g.id]?.totalSeconds > 0,
   );
 
   return (
@@ -134,22 +135,23 @@ export default function DashboardPage() {
               goals={goals}
               value={selectedGoal}
               onChange={setSelectedGoal}
-              onAddClick={() => setShowGoalManager((p) => !p)}
-              canAddMore={goals.length < MAX_GOALS}
+              onManageClick={() => setShowGoalManager((v) => !v)}
+              canAddMore={goals.length < 5}
             />
 
-            {showGoalManager && goals.length < MAX_GOALS && (
-              <div className="mt-4 max-w-xl">
+            {showGoalManager && (
+              <MobileBottomSheet
+                open={showGoalManager}
+                onClose={() => setShowGoalManager(false)}
+              >
                 <GoalManager
                   onGoalCreated={(goal) => {
-                    const updated = [...goals, goal];
-                    setGoals(updated);
+                    setGoals((g) => [...g, goal]);
                     setSelectedGoal(goal);
-                    setShowGoalManager(false);
-                    fetchVideos(goal.query);
                   }}
+                  onClose={() => setShowGoalManager(false)}
                 />
-              </div>
+              </MobileBottomSheet>
             )}
           </>
         )}
@@ -184,9 +186,7 @@ export default function DashboardPage() {
           <VideoList
             videos={videos}
             goalId={selectedGoal?.id}
-            progress={
-              selectedGoal ? progress[selectedGoal.id] : undefined
-            }
+            progress={selectedGoal ? progress[selectedGoal.id] : undefined}
           />
         )}
 
