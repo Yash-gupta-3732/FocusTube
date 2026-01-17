@@ -1,12 +1,16 @@
-import VideoSkeleton from "./VideoSkeleton";
+"use client";
 
-export default function VideoSkeletonList({ count = 6 }: { count?: number }) {
+import VideoSkeletonCard from "./VideoSkeleton";
+
+interface Props {
+  count?: number;
+}
+
+export default function VideoSkeletonList({ count = 6 }: Props) {
   return (
-    <ul className="space-y-2">
+    <ul className="mt-4 space-y-2">
       {Array.from({ length: count }).map((_, i) => (
-        <li key={i}>
-          <VideoSkeleton />
-        </li>
+        <VideoSkeletonCard key={i} />
       ))}
     </ul>
   );
